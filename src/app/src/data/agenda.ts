@@ -50,7 +50,7 @@ const TASKS_BY_WEEKDAY: Task[][] = [
       id: "t1",
       tag: "Concluido",
       priority: "normal",
-      title: "Reuniao de grupo",
+      title: "Reuniao de equipe",
       time: "Realizado as 14:00",
     },
   ],
