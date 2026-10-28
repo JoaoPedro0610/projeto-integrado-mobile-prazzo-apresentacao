@@ -38,6 +38,7 @@ export function LoginScreen({ navigation }: RootStackScreenProps<"Login">) {
   const [ra, setRa] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   /** O RA e numerico: descarta qualquer caractere que nao seja digito. */
   function handleRaChange(value: string) {
@@ -110,10 +111,21 @@ export function LoginScreen({ navigation }: RootStackScreenProps<"Login">) {
               onChangeText={setPassword}
               error={errors.password}
               placeholder="Sua senha"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
             />
+
+            <Pressable
+              onPress={() => setShowPassword((current) => !current)}
+              style={styles.togglePassword}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text style={styles.togglePasswordText}>
+                {showPassword ? "Ocultar senha" : "Mostrar senha"}
+              </Text>
+            </Pressable>
 
             <Button label="ENTRAR" onPress={handleSubmit} />
           </View>
@@ -171,6 +183,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow.card,
+  },
+  togglePassword: {
+    alignSelf: "flex-end",
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  togglePasswordText: {
+    ...textStyles.body,
+    color: colors.primaryLight,
+    fontWeight: "600",
   },
   footerLink: {
     marginTop: spacing.xxl,
