@@ -12,10 +12,17 @@ Projeto Integrado da disciplina de Desenvolvimento Mobile.
 
 ## Equipe
 
-| Nome | Papel | GitHub |
-| ---- | ----- | ------ |
-| João Pedro | Scrum Master / Tech Lead | [@JoaoPedro0610](https://github.com/JoaoPedro0610) |
-| _a definir_ | _a definir_ | _a definir_ |
+| # | Nome | Matrícula |
+| - | ---- | --------- |
+| 1 | Lucas Vieira Lopes | 0021545 |
+| 2 | Hugo Carvalho de Menezes | 0021318 |
+| 3 | Marcus Vinicius de Souza Marques | 0021530 |
+| 4 | Leonardo de Sousa Teixeira | 0022004 |
+| 5 | Gabriel Francelino | 0021540 |
+| 6 | Raphael Eduardo Ferreira de Oliveira | 0021410 |
+| 7 | Gabriel Neves Lourenço | 0020963 |
+| 8 | Gustavo Mota Rodrigues | 0022125 |
+| 9 | João Pedro da Silva Santos ([@JoaoPedro0610](https://github.com/JoaoPedro0610)), Scrum Master / Tech Lead | 0021871 |
 
 ## Tecnologias
 
