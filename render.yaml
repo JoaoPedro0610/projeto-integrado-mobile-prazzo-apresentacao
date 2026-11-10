@@ -1,0 +1,50 @@
+# =============================================================
+# PRAZZO - Blueprint de producao no Render (https://render.com)
+#
+# Sobe a API e o Postgres de producao de uma vez:
+#   Render > New > Blueprint > escolha este repositorio > Apply
+#
+# Nenhum segredo fica neste arquivo: o JWT_SECRET e gerado pelo Render e o
+# DATABASE_URL vem direto do banco criado abaixo.
+#
+# Limites do plano gratuito, para ninguem ser pego de surpresa:
+#   - a API "dorme" apos 15 min sem uso; a primeira requisicao seguinte
+#     demora ~1 min para responder.
+#   - o Postgres gratuito expira 30 dias depois de criado. Para durar mais,
+#     crie o banco no Neon (neon.tech) e troque o DATABASE_URL no painel.
+# =============================================================
+databases:
+  - name: prazzo-db
+    plan: free
+    databaseName: prazzo
+    user: prazzo
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: prazzo-api
+    runtime: node
+    plan: free
+    rootDir: src/backend
+    # --include=dev: o `tsc` e devDependency e o Render instala com
+    # NODE_ENV=production, que pularia as devDependencies.
+    buildCommand: npm ci --include=dev && npm run build
+    # Aplica as migrations pendentes antes de aceitar requisicoes.
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: DATABASE_URL
+        fromDatabase:
+          name: prazzo-db
+          property: connectionString
+      # Mesmo fuso do docker-compose de desenvolvimento.
+      - key: TZ
+        value: America/Sao_Paulo

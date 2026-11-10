@@ -7,14 +7,16 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prazzo.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.prazzo.app",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#6c5ce7",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0f1117",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -23,6 +25,25 @@
     },
     "scheme": "prazzo",
     "backgroundColor": "#0f1117",
-    "primaryColor": "#6c5ce7"
+    "primaryColor": "#6c5ce7",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0f1117",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ]
   }
 }
