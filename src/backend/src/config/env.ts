@@ -20,12 +20,25 @@ function required(name: string, fallback?: string): string {
   return value;
 }
 
+const nodeEnv = process.env.NODE_ENV ?? "development";
+const emProducao = nodeEnv === "production";
+
+/**
+ * Em producao os fallbacks de desenvolvimento somem: subir a API publica com
+ * o segredo "prazzo-dev-secret" (que esta no Git) deixaria qualquer pessoa
+ * forjar tokens, e cair no banco `localhost` so adiaria o erro para a
+ * primeira requisicao. Melhor o deploy falhar na hora, com a mensagem acima.
+ */
+function fallbackDeDev(valor: string): string | undefined {
+  return emProducao ? undefined : valor;
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3333),
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv,
 
   /** Usado para assinar/validar os JWT (ETAPA 2). */
-  jwtSecret: required("JWT_SECRET", "prazzo-dev-secret"),
+  jwtSecret: required("JWT_SECRET", fallbackDeDev("prazzo-dev-secret")),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "1d",
 
   /**
@@ -38,10 +51,8 @@ export const env = {
    */
   databaseUrl: required(
     "DATABASE_URL",
-    "postgresql://prazzo:prazzo@localhost:5432/prazzo"
+    fallbackDeDev("postgresql://prazzo:prazzo@localhost:5432/prazzo")
   ),
 
-  get isProduction(): boolean {
-    return this.nodeEnv === "production";
-  },
+  isProduction: emProducao,
 } as const;
