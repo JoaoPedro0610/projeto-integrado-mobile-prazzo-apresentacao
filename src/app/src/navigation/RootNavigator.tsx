@@ -20,7 +20,9 @@ import {
   type Theme,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { View } from "react-native";
 
+import { useAuth } from "../contexts/AuthContext";
 import {
   DashboardScreen,
   LoginScreen,
@@ -51,10 +53,19 @@ const navigationTheme: Theme = {
 };
 
 export function RootNavigator() {
+  const { usuario, restaurando } = useAuth();
+
+  // Ler o SecureStore leva poucos milissegundos. Esperar por ele evita mostrar
+  // a Welcome por um instante e logo pular para o Dashboard.
+  if (restaurando) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
-        initialRouteName="Welcome"
+        // Sessao salva e valida -> abre direto na agenda.
+        initialRouteName={usuario ? "Dashboard" : "Welcome"}
         screenOptions={{
           // As telas do PRAZZO desenham o proprio cabecalho, entao o header
           // padrao fica desligado.
