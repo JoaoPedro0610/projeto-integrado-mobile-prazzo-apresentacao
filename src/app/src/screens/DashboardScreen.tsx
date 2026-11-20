@@ -16,20 +16,17 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TaskCard } from "../components";
+import { useAuth } from "../contexts/AuthContext";
 import { buildAgendaWeek } from "../data/agenda";
 import type { RootStackScreenProps } from "../navigation/types";
 import { brand, colors, radius, spacing, textStyles } from "../theme";
-
-/**
- * Usuario de exemplo da ETAPA 3.
- * >>> ETAPA 4 <<< isto sai: o nome vem do AuthContext, alimentado pelo login.
- */
-const MOCK_USER = { initial: "A" };
 
 export function DashboardScreen({
   navigation,
 }: RootStackScreenProps<"Dashboard">) {
   const insets = useSafeAreaInsets();
+  const { usuario, sair } = useAuth();
+  const inicial = usuario?.nome.trim().charAt(0).toUpperCase() || "?";
 
   // `useMemo` para a semana ser montada uma vez, e nao a cada re-render
   // disparado pela troca de dia.
@@ -43,6 +40,7 @@ export function DashboardScreen({
   const selectedDay = week[selectedIndex];
 
   function handleLogout() {
+    sair();
     navigation.reset({ index: 0, routes: [{ name: "Welcome" }] });
   }
 
@@ -73,9 +71,11 @@ export function DashboardScreen({
             onPress={handleLogout}
             style={styles.avatar}
             accessibilityRole="button"
-            accessibilityLabel="Sair da conta"
+            accessibilityLabel={
+              usuario ? `Sair da conta de ${usuario.nome}` : "Sair da conta"
+            }
           >
-            <Text style={styles.avatarText}>{MOCK_USER.initial}</Text>
+            <Text style={styles.avatarText}>{inicial}</Text>
           </Pressable>
         </View>
 

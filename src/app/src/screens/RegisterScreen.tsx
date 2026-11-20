@@ -1,12 +1,11 @@
 /**
  * Tela de cadastro (rota "Register").
  *
- * ETAPA 3: valida so o formato dos campos e entra direto no app.
- *
- * >>> ETAPA 4 <<< trocar o corpo de `handleSubmit` por uma chamada a
- * `src/services/` (POST /users). O backend e quem vai recusar um RA que
- * ja existe - a validacao daqui e apenas a primeira barreira, para o
- * usuario nao esperar uma ida ao servidor por um erro obvio.
+ * Cria a conta pela API (POST /auth/registrar, via `useAuth().registrar`).
+ * O backend e quem recusa um RA ou e-mail que ja existe - a validacao daqui
+ * e apenas a primeira barreira, para o usuario nao esperar uma ida ao
+ * servidor por um erro obvio. Os erros por campo que a API devolve aparecem
+ * embaixo do Input correspondente.
  */
 import { useState } from "react";
 import {
@@ -21,7 +20,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Input } from "../components";
+import { useAuth } from "../contexts/AuthContext";
 import type { RootStackScreenProps } from "../navigation/types";
+import { ApiError } from "../services/api";
 import { colors, radius, shadow, spacing, textStyles } from "../theme";
 
 const RA_MIN_LENGTH = 6;
@@ -46,8 +47,16 @@ export function RegisterScreen({
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
+  /** Erro que nao e de um campo so: sem rede, servidor fora. */
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { registrar } = useAuth();
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (loading) {
+      return;
+    }
+
     const nextErrors: FormErrors = {};
 
     if (name.trim().length < 3) {
@@ -58,7 +67,7 @@ export function RegisterScreen({
       nextErrors.ra = `O RA deve ter ao menos ${RA_MIN_LENGTH} digitos.`;
     }
 
-    if (!EMAIL_PATTERN.test(email)) {
+    if (!EMAIL_PATTERN.test(email.trim())) {
       nextErrors.email = "Informe um e-mail valido.";
     }
 
@@ -71,11 +80,36 @@ export function RegisterScreen({
     }
 
     setErrors(nextErrors);
+    setFormError(null);
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
+    setLoading(true);
+    try {
+      await registrar({
+        nome: name.trim(),
+        ra,
+        email: email.trim(),
+        senha: password,
+      });
+    } catch (erro) {
+      setLoading(false);
+      if (erro instanceof ApiError) {
+        // A API responde com as chaves em portugues; o formulario usa as do app.
+        const { nome, ra: erroRa, email: erroEmail, senha } = erro.campos;
+        setErrors({ name: nome, ra: erroRa, email: erroEmail, password: senha });
+        if (!nome && !erroRa && !erroEmail && !senha) {
+          setFormError(erro.message);
+        }
+      } else {
+        setFormError("Algo deu errado. Tente de novo.");
+      }
+      return;
+    }
+
+    // A API ja devolve o token no cadastro: entra direto, sem pedir login.
     navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   }
 
@@ -146,7 +180,13 @@ export function RegisterScreen({
               onSubmitEditing={handleSubmit}
             />
 
-            <Button label="CRIAR CONTA" onPress={handleSubmit} />
+            {formError ? (
+              <Text style={styles.formError} accessibilityLiveRegion="polite">
+                {formError}
+              </Text>
+            ) : null}
+
+            <Button label="CRIAR CONTA" onPress={handleSubmit} loading={loading} />
           </View>
 
           {/* `navigate` e nao `goBack`: se o usuario chegou aqui pela Welcome,
@@ -200,6 +240,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow.card,
+  },
+  formError: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.danger,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
   footerLink: {
     marginTop: spacing.xxl,

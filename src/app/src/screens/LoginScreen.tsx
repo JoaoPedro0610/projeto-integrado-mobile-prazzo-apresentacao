@@ -1,11 +1,9 @@
 /**
  * Tela de login (rota "Login").
  *
- * ETAPA 3: a validacao e apenas de formato (campo vazio, tamanho minimo).
- * Nenhum RA/senha e conferido de verdade - qualquer par valido entra.
- *
- * >>> ETAPA 4 <<< trocar o corpo de `handleSubmit` por uma chamada a
- * `src/services/` (POST /sessions), guardar o token e so entao navegar.
+ * A validacao local (campo vazio, tamanho minimo) evita uma ida ao servidor
+ * por erro obvio. Quem confere RA e senha de verdade e a API
+ * (POST /auth/login, via `useAuth().entrar`).
  */
 import { useState } from "react";
 import {
@@ -21,7 +19,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Input } from "../components";
+import { useAuth } from "../contexts/AuthContext";
 import type { RootStackScreenProps } from "../navigation/types";
+import { ApiError } from "../services/api";
 import { brand, colors, radius, shadow, spacing, textStyles } from "../theme";
 
 /** Quantidade minima de digitos aceita no RA. */
@@ -38,13 +38,21 @@ export function LoginScreen({ navigation }: RootStackScreenProps<"Login">) {
   const [ra, setRa] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
+  /** Erro que nao e de um campo so: senha incorreta, sem rede, servidor fora. */
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { entrar } = useAuth();
 
   /** O RA e numerico: descarta qualquer caractere que nao seja digito. */
   function handleRaChange(value: string) {
     setRa(value.replace(/[^0-9]/g, ""));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (loading) {
+      return;
+    }
+
     const nextErrors: FormErrors = {};
 
     if (ra.length === 0) {
@@ -60,8 +68,26 @@ export function LoginScreen({ navigation }: RootStackScreenProps<"Login">) {
     }
 
     setErrors(nextErrors);
+    setFormError(null);
 
     if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await entrar(ra, password);
+    } catch (erro) {
+      setLoading(false);
+      if (erro instanceof ApiError) {
+        setErrors({ ra: erro.campos.ra, password: erro.campos.senha });
+        // 401 = "RA ou senha incorretos.", de proposito sem dizer qual dos dois.
+        if (!erro.campos.ra && !erro.campos.senha) {
+          setFormError(erro.message);
+        }
+      } else {
+        setFormError("Algo deu errado. Tente de novo.");
+      }
       return;
     }
 
@@ -115,7 +141,13 @@ export function LoginScreen({ navigation }: RootStackScreenProps<"Login">) {
               onSubmitEditing={handleSubmit}
             />
 
-            <Button label="ENTRAR" onPress={handleSubmit} />
+            {formError ? (
+              <Text style={styles.formError} accessibilityLiveRegion="polite">
+                {formError}
+              </Text>
+            ) : null}
+
+            <Button label="ENTRAR" onPress={handleSubmit} loading={loading} />
           </View>
 
           <Pressable
@@ -171,6 +203,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow.card,
+  },
+  formError: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.danger,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
   footerLink: {
     marginTop: spacing.xxl,
