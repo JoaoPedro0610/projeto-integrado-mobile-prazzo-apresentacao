@@ -45,6 +45,12 @@ services:
         fromDatabase:
           name: prazzo-db
           property: connectionString
-      # Mesmo fuso do docker-compose de desenvolvimento.
+      # Mesmo fuso do docker-compose de desenvolvimento. Tambem decide onde
+      # cai a "segunda-feira" das tarefas que o SEED_DEMO cria.
       - key: TZ
         value: America/Sao_Paulo
+      # Recria a conta de demonstracao (RA 12345678, senha prazzo123) a cada
+      # subida, com as tarefas na semana atual. Contas reais nao sao tocadas.
+      # Desligue (false) quando o app for usado de verdade.
+      - key: SEED_DEMO
+        value: "true"

@@ -77,6 +77,26 @@ export type Tarefa = {
   atualizadoEm: Date;
 };
 
+/**
+ * Tarefa como a agenda do app recebe: a tarefa mais o nome da disciplina, ja
+ * resolvido no JOIN. Assim o app nao precisa de uma segunda chamada a
+ * /disciplinas so para escrever o nome embaixo do titulo.
+ */
+export type TarefaDaAgenda = Tarefa & {
+  disciplinaNome: string | null;
+};
+
+/** O que o repositorio precisa para criar uma tarefa (ja validado). */
+export type DadosNovaTarefa = {
+  usuarioId: string;
+  disciplinaId: string | null;
+  titulo: string;
+  descricao: string | null;
+  tipo: TarefaTipo;
+  prioridade: TarefaPrioridade;
+  prazo: Date;
+};
+
 export type Notificacao = {
   id: string;
   tarefaId: string;

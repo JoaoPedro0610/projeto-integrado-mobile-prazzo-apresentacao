@@ -1,26 +1,27 @@
 /**
- * Dados de exemplo da agenda (ETAPA 3).
+ * Monta a agenda da semana (segunda a sexta) a partir das tarefas da API.
  *
- * O app ainda nao conversa com a API. Estas tarefas existem apenas para as
- * telas terem conteudo real para exibir na apresentacao da ETAPA 3.
- *
- * >>> Na ETAPA 4 este arquivo sai. <<<
- * As tarefas passam a vir de `src/services/`, mas mantendo EXATAMENTE os
- * tipos declarados aqui (`Task`, `AgendaDay`) - assim nenhuma tela precisa
- * mudar. E a mesma ideia dos `repositories/` do backend.
+ * Os tipos `Task` e `AgendaDay` sao os mesmos da ETAPA 3, quando as tarefas
+ * eram fixas neste arquivo: por isso `TaskCard`, `Tag` e o calendario do
+ * Dashboard nao precisaram mudar para passar a ler do backend.
  */
+import type { TarefaApi, TarefaTipo } from "../services/tarefas";
 
 /** Define a cor da etiqueta no card da tarefa. */
 export type TaskPriority = "urgent" | "normal";
 
 export type Task = {
   id: string;
-  /** Etiqueta curta exibida no topo do card ("Urgente", "Leitura", "Prova"). */
+  /** Etiqueta curta exibida no topo do card ("Prova", "Leitura", "Concluido"). */
   tag: string;
   priority: TaskPriority;
   title: string;
-  /** Texto livre do horario ("Ate 23:59", "As 19:00"). */
+  /** Horario ja formatado ("Ate 23:59", "As 19:00", "Concluido as 14:00"). */
   time: string;
+  /** Nome da disciplina, quando a tarefa pertence a uma. */
+  subject: string | null;
+  /** Concluida: o card mostra a caixa marcada e o titulo esmaecido. */
+  done: boolean;
 };
 
 export type AgendaDay = {
@@ -43,58 +44,20 @@ const WEEKDAYS = [
   { short: "Sex", full: "Sexta-feira" },
 ] as const;
 
-/** Tarefas de exemplo por dia util (0 = segunda ... 4 = sexta). */
-const TASKS_BY_WEEKDAY: Task[][] = [
-  [
-    {
-      id: "t1",
-      tag: "Concluido",
-      priority: "normal",
-      title: "Reuniao de equipe",
-      time: "Realizado as 14:00",
-    },
-  ],
-  [
-    {
-      id: "t2",
-      tag: "Urgente",
-      priority: "urgent",
-      title: "Entrega de BD II",
-      time: "Ate 23:59",
-    },
-    {
-      id: "t3",
-      tag: "Leitura",
-      priority: "normal",
-      title: "Artigo de Engenharia de SW",
-      time: "As 19:00",
-    },
-  ],
-  [
-    {
-      id: "t4",
-      tag: "Prova",
-      priority: "urgent",
-      title: "Prova P1 de Algoritmos",
-      time: "As 08:00",
-    },
-  ],
-  [],
-  [
-    {
-      id: "t5",
-      tag: "Trabalho",
-      priority: "normal",
-      title: "Apresentacao de Redes",
-      time: "As 20:30",
-    },
-  ],
-];
+/** Texto da etiqueta para cada tipo de tarefa do backend. */
+const TIPO_LABEL: Record<TarefaTipo, string> = {
+  prova: "Prova",
+  trabalho: "Trabalho",
+  leitura: "Leitura",
+  entrega: "Entrega",
+  outro: "Compromisso",
+};
 
 /**
- * Segunda-feira da semana da data informada.
+ * Segunda-feira (00:00, hora local) da semana da data informada.
  * `getDay()` devolve 0 no domingo, entao no domingo apontamos para a
- * segunda seguinte (a semana que o aluno tem pela frente).
+ * segunda seguinte (a semana que o aluno tem pela frente). O seed do backend
+ * usa a mesma regra.
  */
 function mondayOfWeek(reference: Date): Date {
   const weekday = reference.getDay();
@@ -102,27 +65,94 @@ function mondayOfWeek(reference: Date): Date {
 
   const monday = new Date(reference);
   monday.setDate(reference.getDate() + offset);
+  monday.setHours(0, 0, 0, 0);
   return monday;
 }
 
 /**
- * Monta a semana (segunda a sexta) em torno da data atual, para o
- * calendario nunca aparecer com datas velhas na apresentacao.
+ * Periodo que a agenda mostra: de segunda 00:00 ate sabado 00:00, no fuso do
+ * aparelho. E o que vai para `GET /tarefas?inicio=...&fim=...`.
  */
-export function buildAgendaWeek(reference: Date = new Date()): AgendaDay[] {
-  const monday = mondayOfWeek(reference);
+export function agendaWeekRange(reference: Date = new Date()): {
+  start: Date;
+  end: Date;
+} {
+  const start = mondayOfWeek(reference);
+  const end = new Date(start);
+  end.setDate(start.getDate() + WEEKDAYS.length);
+  return { start, end };
+}
+
+function hhmm(date: Date): string {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+/** Converte a tarefa da API no formato que o `TaskCard` desenha. */
+function toTask(tarefa: TarefaApi): Task {
+  const concluida = tarefa.status === "concluida";
+  const prazo = new Date(tarefa.prazo);
+
+  let time: string;
+  if (concluida) {
+    time = `Concluido as ${hhmm(new Date(tarefa.concluidaEm ?? tarefa.prazo))}`;
+  } else if (tarefa.tipo === "entrega") {
+    time = `Ate ${hhmm(prazo)}`;
+  } else {
+    time = `As ${hhmm(prazo)}`;
+  }
+
+  return {
+    id: tarefa.id,
+    // Concluida perde o destaque de urgente: ja nao exige atencao.
+    tag: concluida ? "Concluido" : TIPO_LABEL[tarefa.tipo],
+    priority: !concluida && tarefa.prioridade === "urgente" ? "urgent" : "normal",
+    title: tarefa.titulo,
+    time,
+    subject: tarefa.disciplinaNome,
+    done: concluida,
+  };
+}
+
+/** Os cinco dias uteis da semana da agenda, para o formulario de nova tarefa. */
+export function agendaWeekDays(
+  reference: Date = new Date()
+): { label: string; date: Date }[] {
+  const { start: monday } = agendaWeekRange(reference);
 
   return WEEKDAYS.map((weekday, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
+    return { label: `${weekday.short} ${date.getDate()}`, date };
+  });
+}
+
+/**
+ * Monta a semana (segunda a sexta) em torno da data atual e distribui as
+ * tarefas pelo dia LOCAL do prazo. A API ja devolve tudo em ordem de prazo,
+ * entao cada dia sai ordenado por horario.
+ */
+export function buildAgendaWeek(
+  tarefas: TarefaApi[] = [],
+  reference: Date = new Date()
+): AgendaDay[] {
+  const { start: monday } = agendaWeekRange(reference);
+
+  return WEEKDAYS.map((weekday, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const dateKey = date.toDateString();
 
     return {
       id: weekday.short,
       shortName: weekday.short,
       fullName: weekday.full,
       dayNumber: date.getDate(),
-      isToday: date.toDateString() === reference.toDateString(),
-      tasks: TASKS_BY_WEEKDAY[index] ?? [],
+      isToday: dateKey === reference.toDateString(),
+      tasks: tarefas
+        .filter((tarefa) => new Date(tarefa.prazo).toDateString() === dateKey)
+        .map(toTask),
     };
   });
 }
