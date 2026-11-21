@@ -1,8 +1,10 @@
 /**
  * Card de uma tarefa na agenda.
  *
- * Equivale ao `.task-card` do prototipo: etiqueta, titulo e horario
- * empilhados dentro de um cartao branco com borda suave.
+ * Equivale ao `.task-card` do prototipo: etiqueta, titulo e a linha de
+ * horario + disciplina, empilhados dentro de um cartao com borda suave.
+ * So texto, sem emoji: o glifo do relogio variava de fabricante para
+ * fabricante e destoava do resto da interface.
  */
 import { StyleSheet, Text, View } from "react-native";
 
@@ -19,7 +21,9 @@ export function TaskCard({ task }: TaskCardProps) {
     <View style={styles.card}>
       <Tag label={task.tag} priority={task.priority} />
       <Text style={styles.title}>{task.title}</Text>
-      <Text style={styles.time}>{`\u23F0  ${task.time}`}</Text>
+      <Text style={styles.time}>
+        {task.subject ? `${task.time}  \u00B7  ${task.subject}` : task.time}
+      </Text>
     </View>
   );
 }

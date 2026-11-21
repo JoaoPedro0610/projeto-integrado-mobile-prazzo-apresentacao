@@ -5,10 +5,11 @@
 import { Router } from "express";
 
 import { authRoutes } from "./auth.routes";
+import { tarefasRoutes } from "./tarefas.routes";
 
 export const routes = Router();
 
 routes.use("/auth", authRoutes);
+routes.use("/tarefas", tarefasRoutes);
 
-// TODO (ETAPA 5): routes.use("/tarefas", tarefasRoutes);
 // TODO (ETAPA 6): routes.use("/disciplinas", disciplinasRoutes);

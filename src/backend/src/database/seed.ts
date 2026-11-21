@@ -1,17 +1,16 @@
 /**
  * Popula o banco com os dados de exemplo.  Uso: `npm run seed`
  *
- * Reproduz o mock de `app/src/data/agenda.ts`, para o Dashboard continuar
- * mostrando a mesma semana depois de passar a ler da API.
+ * Cria a usuaria de exemplo com uma semana academica cheia (segunda a sexta
+ * da semana em que o seed roda), para o Dashboard ter o que mostrar em
+ * qualquer dia da apresentacao. A semana e calculada na hora: rodar o seed de
+ * novo na semana seguinte "move" as tarefas para ela.
  *
- * O mapeamento mock -> banco:
+ * Como o card do app monta a etiqueta a partir destes campos:
  *
- *   tag "Concluido" -> status 'concluida'    (e estado, nao categoria)
- *   tag "Urgente"   -> prioridade 'urgente'  (e prioridade, nao categoria)
- *   tag "Leitura"   -> tipo 'leitura'
- *   tag "Prova"     -> tipo 'prova'
- *   tag "Trabalho"  -> tipo 'trabalho'
- *   time "Ate 23:59"-> prazo = terca as 23:59 (instante, nao texto)
+ *   status 'concluida'     -> etiqueta "Concluido"
+ *   prioridade 'urgente'   -> etiqueta vermelha
+ *   tipo (prova, leitura..) -> texto da etiqueta nos demais casos
  *
  * E idempotente: apaga o usuario de exemplo e o recria. O ON DELETE CASCADE das
  * migrations leva embora disciplinas, tarefas e notificacoes dele, entao rodar
@@ -70,10 +69,13 @@ const DISCIPLINAS: DisciplinaExemplo[] = [
   { nome: "Engenharia de Software", codigo: "ESW", cor: "#00d2a0" },
   { nome: "Algoritmos", codigo: "ALG", cor: "#f87171" },
   { nome: "Redes de Computadores", codigo: "RED", cor: "#a29bfe" },
+  { nome: "Desenvolvimento Mobile", codigo: "MOB", cor: "#fbbf24" },
+  { nome: "Estatistica", codigo: "EST", cor: "#60a5fa" },
 ];
 
 type TarefaExemplo = {
   titulo: string;
+  descricao?: string;
   disciplina: string | null;
   tipo: TarefaTipo;
   prioridade: TarefaPrioridade;
@@ -84,10 +86,16 @@ type TarefaExemplo = {
   concluida: boolean;
 };
 
+/**
+ * Uma semana tipica de um aluno de Computacao: provas, entregas, leituras e
+ * compromissos do grupo. Todo dia util tem pelo menos duas tarefas, com mistura
+ * de urgente/normal e de pendente/concluida, para cada estado do card aparecer.
+ */
 const TAREFAS: TarefaExemplo[] = [
-  // Segunda - era a tag "Concluido" do mock.
+  // ---- Segunda -------------------------------------------------------------
   {
-    titulo: "Reuniao de grupo",
+    titulo: "Reuniao de grupo do Projeto Integrado",
+    descricao: "Dividir as telas restantes e revisar o board.",
     disciplina: null,
     tipo: "outro",
     prioridade: "normal",
@@ -96,9 +104,33 @@ const TAREFAS: TarefaExemplo[] = [
     minuto: 0,
     concluida: true,
   },
-  // Terca - "Urgente" (prioridade) e "Leitura" (tipo).
   {
-    titulo: "Entrega de BD II",
+    titulo: "Lista 3 de Estatistica",
+    descricao: "Exercicios 1 a 12 sobre distribuicao normal.",
+    disciplina: "Estatistica",
+    tipo: "entrega",
+    prioridade: "normal",
+    dia: 0,
+    hora: 18,
+    minuto: 0,
+    concluida: true,
+  },
+  {
+    titulo: "Capitulo 4 do livro de Redes",
+    descricao: "Camada de rede: enderecamento IPv4 e sub-redes.",
+    disciplina: "Redes de Computadores",
+    tipo: "leitura",
+    prioridade: "normal",
+    dia: 0,
+    hora: 21,
+    minuto: 0,
+    concluida: false,
+  },
+
+  // ---- Terca ---------------------------------------------------------------
+  {
+    titulo: "Entrega do modelo logico de BD II",
+    descricao: "Diagrama ER normalizado ate a 3FN, em PDF no AVA.",
     disciplina: "Banco de Dados II",
     tipo: "entrega",
     prioridade: "urgente",
@@ -108,7 +140,8 @@ const TAREFAS: TarefaExemplo[] = [
     concluida: false,
   },
   {
-    titulo: "Artigo de Engenharia de SW",
+    titulo: "Artigo sobre metodos ageis",
+    descricao: "Ler e trazer um resumo de uma pagina para a aula.",
     disciplina: "Engenharia de Software",
     tipo: "leitura",
     prioridade: "normal",
@@ -117,9 +150,22 @@ const TAREFAS: TarefaExemplo[] = [
     minuto: 0,
     concluida: false,
   },
-  // Quarta - "Prova".
+  {
+    titulo: "Monitoria de Algoritmos",
+    descricao: "Tirar duvidas de recursao antes da prova.",
+    disciplina: "Algoritmos",
+    tipo: "outro",
+    prioridade: "normal",
+    dia: 1,
+    hora: 16,
+    minuto: 30,
+    concluida: false,
+  },
+
+  // ---- Quarta --------------------------------------------------------------
   {
     titulo: "Prova P1 de Algoritmos",
+    descricao: "Recursao, ordenacao e analise de complexidade.",
     disciplina: "Algoritmos",
     tipo: "prova",
     prioridade: "urgente",
@@ -128,16 +174,83 @@ const TAREFAS: TarefaExemplo[] = [
     minuto: 0,
     concluida: false,
   },
-  // Quinta fica vazia de proposito: e o dia do "Nenhum prazo para hoje" do app.
-  // Sexta - "Trabalho".
   {
-    titulo: "Apresentacao de Redes",
-    disciplina: "Redes de Computadores",
+    titulo: "Prototipo das telas no Figma",
+    descricao: "Login, cadastro e agenda, com o tema escuro.",
+    disciplina: "Desenvolvimento Mobile",
     tipo: "trabalho",
     prioridade: "normal",
+    dia: 2,
+    hora: 22,
+    minuto: 0,
+    concluida: false,
+  },
+
+  // ---- Quinta --------------------------------------------------------------
+  {
+    titulo: "Relatorio de requisitos",
+    descricao: "Casos de uso e requisitos nao funcionais do PRAZZO.",
+    disciplina: "Engenharia de Software",
+    tipo: "entrega",
+    prioridade: "urgente",
+    dia: 3,
+    hora: 23,
+    minuto: 59,
+    concluida: false,
+  },
+  {
+    titulo: "Laboratorio de SQL",
+    descricao: "Consultas com JOIN, GROUP BY e subconsultas.",
+    disciplina: "Banco de Dados II",
+    tipo: "trabalho",
+    prioridade: "normal",
+    dia: 3,
+    hora: 10,
+    minuto: 0,
+    concluida: false,
+  },
+  {
+    titulo: "Estudo em grupo para Estatistica",
+    disciplina: "Estatistica",
+    tipo: "outro",
+    prioridade: "normal",
+    dia: 3,
+    hora: 17,
+    minuto: 0,
+    concluida: false,
+  },
+
+  // ---- Sexta ---------------------------------------------------------------
+  {
+    titulo: "Apresentacao de Redes",
+    descricao: "Seminario sobre o protocolo TCP, 15 minutos por grupo.",
+    disciplina: "Redes de Computadores",
+    tipo: "trabalho",
+    prioridade: "urgente",
     dia: 4,
     hora: 20,
     minuto: 30,
+    concluida: false,
+  },
+  {
+    titulo: "Quiz de Desenvolvimento Mobile",
+    descricao: "Navegacao e ciclo de vida de componentes no React Native.",
+    disciplina: "Desenvolvimento Mobile",
+    tipo: "prova",
+    prioridade: "normal",
+    dia: 4,
+    hora: 9,
+    minuto: 0,
+    concluida: false,
+  },
+  {
+    titulo: "Revisar o README do projeto",
+    disciplina: null,
+    tipo: "outro",
+    prioridade: "normal",
+    dia: 4,
+    hora: 15,
+    minuto: 0,
     concluida: false,
   },
 ];
@@ -218,13 +331,14 @@ export async function popularBanco(): Promise<void> {
 
       const { rows } = await cliente.query<{ id: string }>(
         `INSERT INTO tarefas
-           (usuario_id, disciplina_id, titulo, tipo, prioridade, status, prazo, concluida_em)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           (usuario_id, disciplina_id, titulo, descricao, tipo, prioridade, status, prazo, concluida_em)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           usuarioId,
           disciplinaId,
           tarefa.titulo,
+          tarefa.descricao ?? null,
           tarefa.tipo,
           tarefa.prioridade,
           tarefa.concluida ? "concluida" : "pendente",

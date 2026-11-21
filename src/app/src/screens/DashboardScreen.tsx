@@ -6,31 +6,47 @@
  *   2. Faixa de calendario, segunda a sexta, com o dia selecionavel
  *   3. Lista das tarefas do dia escolhido
  *
- * ETAPA 3: as tarefas vem de `src/data/agenda.ts` (dados de exemplo).
- * >>> ETAPA 4 <<< trocar `buildAgendaWeek()` por uma chamada a
- * `src/services/`; o resto da tela nao muda, porque os tipos sao os mesmos.
+ * As tarefas da semana vem da API (GET /tarefas) numa chamada so, ao abrir a
+ * tela; trocar de dia so filtra o que ja chegou. Puxar a lista para baixo
+ * busca de novo.
  */
-import { useMemo, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TaskCard } from "../components";
 import { useAuth } from "../contexts/AuthContext";
-import { buildAgendaWeek } from "../data/agenda";
+import { agendaWeekRange, buildAgendaWeek } from "../data/agenda";
 import type { RootStackScreenProps } from "../navigation/types";
+import { ApiError } from "../services/api";
+import { listarTarefas, type TarefaApi } from "../services/tarefas";
 import { brand, colors, radius, spacing, textStyles } from "../theme";
 
 export function DashboardScreen({
   navigation,
 }: RootStackScreenProps<"Dashboard">) {
   const insets = useSafeAreaInsets();
-  const { usuario, sair } = useAuth();
+  const { usuario, token, sair } = useAuth();
   const inicial = usuario?.nome.trim().charAt(0).toUpperCase() || "?";
 
-  // `useMemo` para a semana ser montada uma vez, e nao a cada re-render
-  // disparado pela troca de dia.
-  const week = useMemo(() => buildAgendaWeek(), []);
+  const [tarefas, setTarefas] = useState<TarefaApi[]>([]);
+  /** Primeira carga: mostra o spinner no lugar da lista. */
+  const [carregando, setCarregando] = useState(true);
+  /** Recarga pelo gesto de puxar: usa o spinner nativo do topo da lista. */
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  // Remontar a semana so quando as tarefas mudam, e nao a cada troca de dia.
+  const week = useMemo(() => buildAgendaWeek(tarefas), [tarefas]);
 
   const [selectedIndex, setSelectedIndex] = useState(() => {
     const todayIndex = week.findIndex((day) => day.isToday);
@@ -39,9 +55,79 @@ export function DashboardScreen({
 
   const selectedDay = week[selectedIndex];
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     sair();
     navigation.reset({ index: 0, routes: [{ name: "Welcome" }] });
+  }, [sair, navigation]);
+
+  const carregarTarefas = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    setErro(null);
+    try {
+      const { start, end } = agendaWeekRange();
+      setTarefas(await listarTarefas(token, start, end));
+    } catch (falha) {
+      // 401 = token vencido ou invalido: a sessao nao serve mais.
+      if (falha instanceof ApiError && falha.status === 401) {
+        handleLogout();
+        return;
+      }
+      setErro(
+        falha instanceof ApiError
+          ? falha.message
+          : "Nao foi possivel carregar as tarefas."
+      );
+    }
+  }, [token, handleLogout]);
+
+  useEffect(() => {
+    carregarTarefas().finally(() => setCarregando(false));
+  }, [carregarTarefas]);
+
+  async function handleRefresh() {
+    setAtualizando(true);
+    await carregarTarefas();
+    setAtualizando(false);
+  }
+
+  function renderListaVazia() {
+    if (carregando) {
+      return (
+        <View style={styles.empty}>
+          <ActivityIndicator color={colors.primaryLight} />
+          <Text style={styles.emptyText}>Carregando as suas tarefas...</Text>
+        </View>
+      );
+    }
+
+    if (erro) {
+      return (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Nao deu para carregar a agenda</Text>
+          <Text style={styles.emptyText}>{erro}</Text>
+          <Pressable
+            onPress={() => {
+              setCarregando(true);
+              carregarTarefas().finally(() => setCarregando(false));
+            }}
+            accessibilityRole="button"
+            style={styles.retry}
+          >
+            <Text style={styles.retryText}>Tentar de novo</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>Nenhum prazo para este dia</Text>
+        <Text style={styles.emptyText}>Aproveite para descansar.</Text>
+      </View>
+    );
   }
 
   return (
@@ -120,17 +206,15 @@ export function DashboardScreen({
         </View>
 
         <FlatList
-          data={selectedDay.tasks}
+          // Com erro, a lista fica vazia para a mensagem de erro aparecer.
+          data={erro ? [] : selectedDay.tasks}
           keyExtractor={(task) => task.id}
           renderItem={({ item }) => <TaskCard task={item} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Nenhum prazo para este dia</Text>
-              <Text style={styles.emptyText}>Aproveite para descansar.</Text>
-            </View>
-          }
+          refreshing={atualizando}
+          onRefresh={handleRefresh}
+          ListEmptyComponent={renderListaVazia()}
         />
       </View>
     </View>
@@ -274,5 +358,18 @@ const styles = StyleSheet.create({
     ...textStyles.body,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+    textAlign: "center",
+  },
+  retry: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  retryText: {
+    ...textStyles.label,
+    color: colors.primaryLight,
   },
 });
