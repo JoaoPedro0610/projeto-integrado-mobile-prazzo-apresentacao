@@ -86,6 +86,17 @@ export type TarefaDaAgenda = Tarefa & {
   disciplinaNome: string | null;
 };
 
+/** O que o repositorio precisa para criar uma tarefa (ja validado). */
+export type DadosNovaTarefa = {
+  usuarioId: string;
+  disciplinaId: string | null;
+  titulo: string;
+  descricao: string | null;
+  tipo: TarefaTipo;
+  prioridade: TarefaPrioridade;
+  prazo: Date;
+};
+
 export type Notificacao = {
   id: string;
   tarefaId: string;
