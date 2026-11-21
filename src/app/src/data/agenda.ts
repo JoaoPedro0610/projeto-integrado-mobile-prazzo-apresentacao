@@ -20,6 +20,8 @@ export type Task = {
   time: string;
   /** Nome da disciplina, quando a tarefa pertence a uma. */
   subject: string | null;
+  /** Concluida: o card mostra a caixa marcada e o titulo esmaecido. */
+  done: boolean;
 };
 
 export type AgendaDay = {
@@ -109,7 +111,21 @@ function toTask(tarefa: TarefaApi): Task {
     title: tarefa.titulo,
     time,
     subject: tarefa.disciplinaNome,
+    done: concluida,
   };
+}
+
+/** Os cinco dias uteis da semana da agenda, para o formulario de nova tarefa. */
+export function agendaWeekDays(
+  reference: Date = new Date()
+): { label: string; date: Date }[] {
+  const { start: monday } = agendaWeekRange(reference);
+
+  return WEEKDAYS.map((weekday, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return { label: `${weekday.short} ${date.getDate()}`, date };
+  });
 }
 
 /**

@@ -10,7 +10,8 @@
  * tela; trocar de dia so filtra o que ja chegou. Puxar a lista para baixo
  * busca de novo.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   FlatList,
@@ -25,10 +26,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TaskCard } from "../components";
 import { useAuth } from "../contexts/AuthContext";
-import { agendaWeekRange, buildAgendaWeek } from "../data/agenda";
+import { agendaWeekRange, buildAgendaWeek, type Task } from "../data/agenda";
 import type { RootStackScreenProps } from "../navigation/types";
 import { ApiError } from "../services/api";
-import { listarTarefas, type TarefaApi } from "../services/tarefas";
+import {
+  alterarStatusTarefa,
+  listarTarefas,
+  type TarefaApi,
+} from "../services/tarefas";
 import { brand, colors, radius, spacing, textStyles } from "../theme";
 
 export function DashboardScreen({
@@ -44,6 +49,8 @@ export function DashboardScreen({
   /** Recarga pelo gesto de puxar: usa o spinner nativo do topo da lista. */
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  /** Falha ao concluir/reabrir: aviso curto acima da lista. */
+  const [aviso, setAviso] = useState<string | null>(null);
 
   // Remontar a semana so quando as tarefas mudam, e nao a cada troca de dia.
   const week = useMemo(() => buildAgendaWeek(tarefas), [tarefas]);
@@ -83,9 +90,50 @@ export function DashboardScreen({
     }
   }, [token, handleLogout]);
 
-  useEffect(() => {
-    carregarTarefas().finally(() => setCarregando(false));
-  }, [carregarTarefas]);
+  // Carrega ao abrir E toda vez que a tela volta a ficar visivel - e assim que
+  // a tarefa recem-criada no formulario aparece na agenda.
+  useFocusEffect(
+    useCallback(() => {
+      carregarTarefas().finally(() => setCarregando(false));
+    }, [carregarTarefas])
+  );
+
+  /**
+   * Conclui/reabre de forma otimista: o card muda na hora e a API confirma
+   * depois. Se a API recusar, o card volta ao estado anterior.
+   */
+  async function handleToggleDone(task: Task) {
+    if (!token) return;
+
+    const anterior = tarefas;
+    const concluir = !task.done;
+    setAviso(null);
+    setTarefas((atuais) =>
+      atuais.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              status: concluir ? "concluida" : "pendente",
+              concluidaEm: concluir ? new Date().toISOString() : null,
+            }
+          : t
+      )
+    );
+
+    try {
+      const atualizada = await alterarStatusTarefa(token, task.id, concluir);
+      setTarefas((atuais) =>
+        atuais.map((t) => (t.id === atualizada.id ? atualizada : t))
+      );
+    } catch (falha) {
+      if (falha instanceof ApiError && falha.status === 401) {
+        handleLogout();
+        return;
+      }
+      setTarefas(anterior);
+      setAviso("Nao foi possivel atualizar a tarefa. Tente de novo.");
+    }
+  }
 
   async function handleRefresh() {
     setAtualizando(true);
@@ -200,16 +248,27 @@ export function DashboardScreen({
           <Text style={styles.sectionTitleText}>
             Tarefas de {selectedDay.fullName}
           </Text>
-          {/* TODO (ETAPA 4): abrir o formulario de nova tarefa.
-              Hoje e so o rotulo, exatamente como no prototipo HTML. */}
-          <Text style={styles.newTaskLabel}>+ Novo Prazzo</Text>
+          <Pressable
+            onPress={() =>
+              navigation.navigate("NewTask", { dayIndex: selectedIndex })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Criar nova tarefa"
+            hitSlop={12}
+          >
+            <Text style={styles.newTaskLabel}>+ Novo Prazzo</Text>
+          </Pressable>
         </View>
+
+        {aviso ? <Text style={styles.aviso}>{aviso}</Text> : null}
 
         <FlatList
           // Com erro, a lista fica vazia para a mensagem de erro aparecer.
           data={erro ? [] : selectedDay.tasks}
           keyExtractor={(task) => task.id}
-          renderItem={({ item }) => <TaskCard task={item} />}
+          renderItem={({ item }) => (
+            <TaskCard task={item} onToggleDone={handleToggleDone} />
+          )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           refreshing={atualizando}
@@ -359,6 +418,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     textAlign: "center",
+  },
+  aviso: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.danger,
+    marginBottom: spacing.sm,
   },
   retry: {
     marginTop: spacing.lg,

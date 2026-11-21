@@ -19,6 +19,11 @@ export type RootStackParamList = {
   Register: undefined;
   /** Area logada (agenda de tarefas). */
   Dashboard: undefined;
+  /**
+   * Formulario de nova tarefa. `dayIndex` (0 = segunda ... 4 = sexta) e o dia
+   * que estava selecionado no Dashboard, para o formulario ja abrir nele.
+   */
+  NewTask: { dayIndex: number };
 };
 
 /**

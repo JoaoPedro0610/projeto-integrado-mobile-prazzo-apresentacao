@@ -26,6 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   DashboardScreen,
   LoginScreen,
+  NewTaskScreen,
   RegisterScreen,
   WelcomeScreen,
 } from "../screens";
@@ -77,6 +78,12 @@ export function RootNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        {/* Sobe de baixo, como um formulario sobre a agenda. */}
+        <Stack.Screen
+          name="NewTask"
+          component={NewTaskScreen}
+          options={{ animation: "slide_from_bottom" }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
